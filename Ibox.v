@@ -1,8 +1,8 @@
 /* verilator lint_off DECLFILENAME */
-module Ibox #(parameter LITTLE_ENDIAN = 1) (output [63:0] result, input[63:0] a, b, input[12:0] opcode);
+module Ibox #(parameter LITTLE_ENDIAN = 1) (output [63:0] result, input[63:0] a, b, input[12:0] opcode, output [5:0] bloc, output [63:0] mei_out1, output [7:0] mei_out2);
 
-  wire [63:0] shifter_out, alu_out, mux1_out, sext_out, cmp_out, mei_out1, zap_out, mux1_in[0:1], mux2_in[0:7];
-  wire [7:0] mei_out2, mux3_out, mux3_in[0:3];
+  wire [63:0] shifter_out, alu_out, mux1_out, sext_out, cmp_out, zap_out, mux1_in[0:1], mux2_in[0:7];
+  wire [7:0] mux3_out, mux3_in[0:3];
   wire [5:0] mux0_out, n_shift_ctrl, mux0_in[0:1];
   wire [3:0] alu_ctrl;
   wire [4:0] mei_ctrl;
@@ -14,8 +14,8 @@ module Ibox #(parameter LITTLE_ENDIAN = 1) (output [63:0] result, input[63:0] a,
       .out (shifter_out),
       .in (a),
       .n (mux0_out),
-      .right (shifter_ctrl[0]),
-      .arithmetic (shifter_ctrl[1])
+      .right (shifter_ctrl[1]),
+      .arithmetic (shifter_ctrl[0])
       );
 
   ALU alu(
@@ -45,7 +45,8 @@ module Ibox #(parameter LITTLE_ENDIAN = 1) (output [63:0] result, input[63:0] a,
       .rb (b[2:0]),
       .inst (mei_ctrl[4:3]),
       .size (mei_ctrl[2:1]),
-      .high (mei_ctrl[0])
+      .high (mei_ctrl[0]),
+      .byteloc (bloc)
       );
       
   ByteZAP bytezap(
@@ -162,9 +163,9 @@ module Mux #(parameter BITS=64, WORDS=2) (output [BITS-1:0] out,
 endmodule
 
 module MSK_EXT_INS #(parameter LITTLE_ENDIAN = 1) (output reg[63:0] out1, output reg[7:0] out2,
-                    input[63:0] ra, input[2:0] rb, input[1:0] size, input[1:0] inst, input high);
+                    input[63:0] ra, input[2:0] rb, input[1:0] size, input[1:0] inst, input high, output reg[5:0] byteloc);
     
-  reg[5:0] byteloc;
+  //reg[5:0] byteloc;
   reg[2:0] rbp;
   reg[15:0] mask;
   always @* begin
@@ -175,17 +176,21 @@ module MSK_EXT_INS #(parameter LITTLE_ENDIAN = 1) (output reg[63:0] out1, output
       3: mask = 16'b11111111;
     endcase
     rbp = LITTLE_ENDIAN ? rb : ~rb;
-    byteloc = {3'b0, rbp} << 3;
-    if (high) byteloc = 6'h40 - byteloc;
+    byteloc = {rbp, 3'b0};
+    if (high) begin byteloc = 6'h40 - byteloc; end
     // inst: MSK = 0, EXT = 1, INS = 2
-    if (inst == 0 || inst == 2) mask = mask << rbp;
+    if (inst == 0 || inst == 2) begin mask = mask << rbp; end
     
-    if (inst == 0) out1 = ra;
-    else if ((inst == 1 && high) || (inst == 2 && !high)) out1 = ra << byteloc;
-    else out1 = ra >> byteloc;
-    
-    if (inst == 1 || !high) out2 = ~mask[7:0];
-    else out2 = ~mask[15:8];
+    if (inst == 0) begin
+      out1 = ra;
+      out2 = high ? mask[15:8] : mask[7:0];
+    end
+    else begin
+      if ((inst == 1 && high) || (inst == 2 && !high)) begin out1 = ra << byteloc; end
+      else begin out1 = ra >> byteloc; end
+      if (inst == 1 || !high) begin out2 = ~mask[7:0]; end
+      else begin out2 = ~mask[15:8]; end
+    end
     
   end
 endmodule
@@ -247,7 +252,7 @@ module Controller #(parameter LITTLE_ENDIAN = 1) (output reg[29:0] out, input [1
       {6'h11 , 7'h00} : out = {6'h0, 2'h0, 4'h3, 3'h0, 5'h0, 3'h0, 1'b0, 1'b0, 3'h0, 2'h0}; // AND
       {6'h11 , 7'h08} : out = {6'h0, 2'h0, 4'h3, 3'h0, 5'h0, 3'h0, 1'b0, 1'b1, 3'h0, 2'h0}; // BIC
       {6'h11 , 7'h14} : out = {6'h3f, 2'h0, 4'h0, 3'h0, 5'h0, 3'h0, 1'b0, 1'b0, 3'h2, 2'h0}; // CMOVLBS
-      {6'h11 , 7'h16} : out = {6'h3f, 2'h0, 4'h0, 3'h3, 5'h0, 3'h0, 1'b0, 1'b0, 3'h2, 2'h0}; // CMOVLBC
+      {6'h11 , 7'h16} : out = {6'h3f, 2'h0, 4'h0, 3'h2, 5'h0, 3'h0, 1'b0, 1'b0, 3'h2, 2'h0}; // CMOVLBC
       {6'h11 , 7'h20} : out = {6'h0, 2'h0, 4'h4, 3'h0, 5'h0, 3'h0, 1'b0, 1'b0, 3'h0, 2'h0}; // BIS
       {6'h11 , 7'h24} : out = {6'h0, 2'h0, 4'h0, 3'h3, 5'h0, 3'h0, 1'b0, 1'b0, 3'h2, 2'h0}; // CMOVEQ
       {6'h11 , 7'h26} : out = {6'h0, 2'h0, 4'h0, 3'h7, 5'h0, 3'h0, 1'b0, 1'b0, 3'h2, 2'h0}; // CMOVNE
@@ -276,7 +281,7 @@ module Controller #(parameter LITTLE_ENDIAN = 1) (output reg[29:0] out, input [1
       {6'h12 , 7'h34} : out = {6'h0, 2'h2, 4'h0, 3'h0, 5'h0, 3'h0, 1'b1, 1'b0, 3'h0, 2'h0}; // SRL
       {6'h12 , 7'h36} : out = {6'h0, 2'h0, 4'h0, 3'h0, 5'he, 3'h0, 1'b0, 1'b0, 3'h4, 2'h0}; // EXTQL
       {6'h12 , 7'h39} : out = {6'h0, 2'h0, 4'h0, 3'h0, 5'h0, 3'h0, 1'b1, 1'b0, 3'h0, 2'h0}; // SLL
-      {6'h12 , 7'h3B} : out = {6'h0, 2'h0, 4'h0, 3'h0, 5'h18, 3'h0, 1'b0, 1'b0, 3'h4, 2'h0}; // INSQL
+      {6'h12 , 7'h3B} : out = {6'h0, 2'h0, 4'h0, 3'h0, 5'h16, 3'h0, 1'b0, 1'b0, 3'h4, 2'h0}; // INSQL
       {6'h12 , 7'h3C} : out = {6'h0, 2'h3, 4'h0, 3'h0, 5'h0, 3'h0, 1'b1, 1'b0, 3'h0, 2'h0}; // SRA
       {6'h12 , 7'h52} : out = {6'h0, 2'h0, 4'h0, 3'h0, 5'h3, 3'h0, 1'b0, 1'b0, 3'h4, 2'h0}; // MSKWH
       {6'h12 , 7'h57} : out = {6'h0, 2'h0, 4'h0, 3'h0, 5'h13, 3'h0, 1'b0, 1'b0, 3'h4, 2'h0}; // INSWH
