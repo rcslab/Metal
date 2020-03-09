@@ -2,23 +2,20 @@
 
 `include "Basics.v"
 
-module Ibox #(parameter LITTLE_ENDIAN = 1) (output reg [63:0] result,
+module Ibox #(parameter LITTLE_ENDIAN = 1) (output [63:0] result,
                                             output ibox_flag,
                                             input[63:0] a, b,
-                                            input[30:0] control,
-                                            input clk);
+                                            input[31:0] control);
 
-  wire [63:0] result_in, shifter_out, alu_out, mux1_out, cmp_out, zap_out, mei_out1, mux1_in[0:1], mux2_in[0:7];
+  wire [63:0] shifter_out, alu_out, mux1_out, cmp_out, zap_out, mei_out1, mux1_in[0:1], mux2_in[0:7];
   wire [7:0] mei_out2, mux3_out, mux3_in[0:3];
   wire [5:0] mux0_out, n_shift_ctrl, mux0_in[0:1];
-  wire [3:0] alu_ctrl;
+  wire [4:0] alu_ctrl;
   wire [4:0] mei_ctrl;
   wire [2:0] cmp_ctrl, mux2_ctrl, xor_ctrl;
   wire [1:0] shifter_ctrl, mux3_ctrl;
   wire mux0_ctrl, mux1_ctrl, v;
   reg ovf;
-  
-  always @(posedge clk) result <= result_in;
   
   assign {n_shift_ctrl, shifter_ctrl, alu_ctrl, cmp_ctrl, mei_ctrl, xor_ctrl, mux0_ctrl, mux1_ctrl, mux2_ctrl, mux3_ctrl, v} = control;
   
@@ -89,7 +86,7 @@ module Ibox #(parameter LITTLE_ENDIAN = 1) (output reg [63:0] result,
   assign mux2_in[6] = {{56{alu_out[7]}}, alu_out[7:0]};
   assign mux2_in[7] = {{48{alu_out[15]}}, alu_out[15:0]};
   Mux #(.BITS(64), .WORDS(8)) mux2(
-      .out (result_in),
+      .out (result),
       .sel (mux2_ctrl),
       .in (mux2_in)
       );
@@ -106,15 +103,13 @@ module Ibox #(parameter LITTLE_ENDIAN = 1) (output reg [63:0] result,
       
 endmodule
 
-module ALU (output reg[63:0] c, input[63:0] a, b, input[3:0] op, output reg ovf);
+module ALU (output reg[63:0] c, input[63:0] a, b, input[4:0] op, output reg ovf);
   integer i;
-  reg [7:0] temp;
-  reg [127:0] temp2;
+  reg [127:0] temp;
   always @* begin
     ovf = 0;
     temp = 0;
-    temp2 = 0;
-    
+
     case (op)
       0 : c = a;
       1 : begin c = a + b; ovf = (a[63] & b[63] & ~c[63]) | (~a[63] & ~b[63] & c[63]); end
@@ -123,22 +118,78 @@ module ALU (output reg[63:0] c, input[63:0] a, b, input[3:0] op, output reg ovf)
       4 : c = a | b;
       5 : c = a ^ b;
       6 : begin // CMPBGE
+        c = 0;
         for (i = 0; i < 8; i = i + 1) begin
-          temp[i] = a[i * 8 +: 8] >= b[i * 8 +: 8];
+          c[i] = a[i * 8 +: 8] >= b[i * 8 +: 8];
         end
-        c = {56'b0, temp[7:0]};
       end
       7 : begin
-        temp2 = $signed(a) * $signed(b);
-        ovf = ~(& temp2[127:63]) & (| temp2[127:63]); 
-        c = temp2[63:0];
-        end
+        temp = $signed(a) * $signed(b);
+        ovf = ~(& temp[127:63]) & (| temp[127:63]); 
+        c = temp[63:0];
+      end
       8 : begin
-        temp2 = $signed(a[31:0]) * $signed(b[31:0]); 
-        ovf = ~(& temp2[63:31]) & (| temp2[63:31]); 
-        c = {{32{temp2[31]}}, temp2[31:0]};
+        temp = $signed(a[31:0]) * $signed(b[31:0]); 
+        ovf = ~(& temp[63:31]) & (| temp[63:31]); 
+        c = {{32{temp[31]}}, temp[31:0]};
+      end
+      9 : begin temp = (a * b); c = temp[127:64]; end
+      10: begin // CTPOP
+        c = 0;
+        for (i = 0; i < 64; i = i + 1) begin
+          if (b[i]) c = c + 1;
         end
-      9 : begin temp2 = (a * b); c = temp2[127:64]; end
+      end
+      11: begin // CTLZ
+        c = 0;
+        for (i = 63; i >= 0; i = i - 1) begin
+          if (b[i])
+            break;
+          c = c + 1;
+        end
+      end
+      12: begin // CTTZ
+        c = 0;
+        for (i = 0; i < 64; i = i + 1) begin
+          if (b[i])
+            break;
+          c = c + 1;
+        end
+      end
+      13: begin // PERR
+        c = 0;
+        for (i = 0; i < 8; i = i + 1) begin
+          temp[7:0] = a[i * 8 +: 8] - b[i * 8 +: 8]; //overflow?
+          if (temp[7])
+            c = c - {{56{temp[7]}}, temp[7:0]};
+          else
+            c = c + {{56{temp[7]}}, temp[7:0]};
+        end
+      end
+      14: begin // PKLB
+        c[7:0] = b[7:0];
+        c[15:8] = b[39:32];
+        c[63:16] = 0;
+      end
+      15: begin // PKWB
+        c[7:0] = b[7:0];
+        c[15:8] = b[23:16];
+        c[23:16] = b[39:32];
+        c[31:24] = b[55:48];
+        c[63:32] = 0;
+      end
+      16: begin // UNPKBL
+        c = 0;
+        c[7:0] = b[7:0];
+        c[39:32] = b[15:8];
+      end
+      17: begin // UNPKBW
+        c = 0;
+        c[7:0] = b[7:0];
+        c[23:16] = b[15:8];
+        c[39:32] = b[23:16];
+        c[55:48] = b[31:24];
+      end
     endcase
   end
 endmodule

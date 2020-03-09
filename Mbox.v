@@ -2,42 +2,46 @@
 
 `include "Basics.v"
 
-module Mbox (output [63:0] reg_w_data,
+module Mbox (output [63:0] reg_w_data, mem_data_out, m_reg_out,
             output [4:0] reg_w_addr,
-            output reg_w_en,
-            input [63:0] ibox_result, mem_w_data, reg_read_b5,
-            input[4:0] ra_addr, rc_addr,
+            output reg_w_en, stall,
+            input [63:0] ibox_result, reg_a4, reg_b5,
+            input[4:0] ra_addr, rb_addr, rc_addr,
             input [1:0] mux1_sel,
-            input ldl, stc, reg_w, mem_w, /*mem_w_ctrl, ext_ctrl,*/ mux2_sel, mux3_sel, clk);
+            input reg_w, m_reg_w_en, mem_w_en, /*mem_w_ctrl, ext_ctrl,*/ mux2_sel, mux3_sel, clk);
 
-  reg [63:0] ibox_result5;
-  wire [63:0] mem_data_out, mux1_in[0:3];
+  reg [63:0] ibox_result5, mem_out5, m_reg_out5;
+  wire [63:0] mux1_in[0:3];
   wire [4:0] mux2_in[0:1];
   wire mux3_in[0:1];
-  reg locked_flag, locked_flag5;
-  
-  always @(ldl or stc) begin
-    if (ldl) locked_flag = 1;
-    if (stc) locked_flag = 0;
-  end
   
   always @(posedge clk) begin
     ibox_result5 <= ibox_result;
-    locked_flag5 <= locked_flag;
+    mem_out5 <= mem_data_out;
+    m_reg_out5 <= m_reg_out;
   end
   
   DCache dcache (
-        .dataOut (mem_data_out),
-        .dataIn (mem_w_data),
+        .data_out (mem_data_out),
+        .stall (stall),
+        .data_in (reg_b5),
         .addr (ibox_result),
-        .writeEn (mem_w | (stc & locked_flag)),
+        .write_en (mem_w_en),
         .clk (clk)
         );
+
+  Metal_reg_file metal_regs (
+      .reg_out (m_reg_out),
+      .addr (rb_addr[3:0]),
+      .write_data (reg_a4),
+      .write_en (m_reg_w_en),
+      .clk(clk)
+      );
   
   assign mux1_in[0] = ibox_result5;
-  assign mux1_in[1] = mem_data_out;
-  assign mux1_in[2] = reg_read_b5;
-  assign mux1_in[3] = {63'b0, locked_flag5};
+  assign mux1_in[1] = mem_out5;
+  assign mux1_in[2] = reg_b5;
+  assign mux1_in[3] = m_reg_out5;
   Mux #(.BITS(64), .WORDS(4)) mux1(
       .out (reg_w_data),
       .sel (mux1_sel),
@@ -62,17 +66,29 @@ module Mbox (output [63:0] reg_w_data,
       
 endmodule
 
+module Metal_reg_file (output [63:0] reg_out,
+            input [3:0] addr,
+            input [63:0] write_data,
+            input write_en, clk);
+  reg [63:0] register[0:15];
+  always @(negedge clk) begin
+    if (write_en)  register[addr] <= write_data;
+  end
+  assign reg_out = register[addr];
+endmodule
+
 /* verilator lint_off WIDTH */
-module DCache (output[63:0] dataOut, input[63:0] dataIn, addr, input clk, writeEn);
-  reg[7:0] dMem[0:1023];
+module DCache (output reg [63:0] data_out, output stall, input[63:0] data_in, addr, input clk, write_en);
+  reg[7:0] dmem[0:1023];
   wire [9:0] a;
+  assign stall = 0;
   assign a = addr[9:0];
-  always@(posedge clk) begin
-    if(writeEn) begin
-      {dMem[a], dMem[a+1], dMem[a+2], dMem[a+3], dMem[a+4], dMem[a+5], dMem[a+6], dMem[a+7]} <= dataIn;
-      dataOut <= dataIn;
+  always@(negedge clk) begin
+    if(write_en) begin
+      {dmem[a], dmem[a+1], dmem[a+2], dmem[a+3], dmem[a+4], dmem[a+5], dmem[a+6], dmem[a+7]} <= data_in;
+      data_out <= data_in;
     end
-    else dataOut <= {dMem[a], dMem[a+1], dMem[a+2], dMem[a+3], dMem[a+4], dMem[a+5], dMem[a+6], dMem[addr+7]};
+    else data_out <= {dmem[a], dmem[a+1], dmem[a+2], dmem[a+3], dmem[a+4], dmem[a+5], dmem[a+6], dmem[addr+7]};
   end
 endmodule
 /* verilator lint_on WIDTH */

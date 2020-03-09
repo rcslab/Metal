@@ -1,8 +1,9 @@
 /* verilator lint_off WIDTH */
-module Icache(output[31:0] data, input[63:0] addr);
+module Icache(output[31:0] data, output stall, input[63:0] addr, input read_en);
   reg[31:0] temp[0:255];
   reg[7:0] iMem[0:1023];
   integer i;
+  assign stall = 0;
   initial begin 
     $readmemh("iMem.list", temp);
     for (i = 0; i < 1024; i = i + 4)
