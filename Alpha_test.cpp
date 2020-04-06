@@ -20,25 +20,30 @@ int main(int argc, char** argv) {
     VAlpha *top = new VAlpha;
     
     while(!Verilated::gotFinish()) {
-    //for (int i = 0; i < 10; i++) {
+//    for (int i = 0; i < 32; i++) {
         top->clk = 0;
         top->eval();
         top->clk = 1;
         top->eval();
-        if (top->pc == 100) {
+        if (top->pc == 0x24) {
 //             cout << top->Alpha__DOT__irf__DOT__rf__DOT__register[1] << endl;
             break;
         }
-        cout << "pc: " << top->pc << endl;
-//         cout << "alu result: " << top->ibox_result << endl;
-        std::bitset<32> x(top->ibox_ctrl);
+        printf("\npc: %x\n", top->pc);
+//        cout << "alu in1: " << top->ibox_in1 << " in2: " << top->ibox_in2 << endl;;
+        cout << "alu result: " << top->ibox_result << endl;
+//        std::bitset<32> x(top->ibox_ctrl);
 //         cout << "ibox_ctrl: " << x << endl;
-        printf("inst1: %x \ninst2: %x \ninst3: %x \ninst4: %x \n inst5: %x\n",
+        printf("inst1: %x \ninst2: %x \ninst3: %x \ninst4: %x \ninst5: %x\n",
                top->inst, top->inst2, top->inst3, top->inst4, top->inst5);
 //         printf("DEBUG: In1: %x, In2: %x\n",
 //                top->Alpha__DOT__ibox_in1, top->Alpha__DOT__ibox_in2);
 //         cout << "reg_w_addr: " << int(top->reg_w_addr) << " reg_w_data: " << top->reg_w_data << " reg_w_en: " << int(top->reg_w_en) << " reg_w: " << int(top->reg_w) << " m3_sel: " << int(top->mbox_m3_sel) << endl;
-        cout << "mux3_sel " << int(top->irf_m3_sel) << " mux4_sel " << int(top->irf_m4_sel) << endl;
+//        cout << "mux3_sel " << int(top->irf_m3_sel) << " mux4_sel " << int(top->irf_m4_sel) << endl;
+        cout << "mem_addr: " << int(top->ibox_result4) << endl;
+        if (top->mem_w_en == 1) cout << "errooorrrrrrrrrrrrrrr" << endl;
+        cout << "mem_out: " << top->mem_out << endl;
+        cout << "menter " << int(top->m_enter) << " mexit " << int(top->m_exit) << endl;
         for (int i = 0; i < 5; i++) {
             printf("Reg[%d]=%x", i, top->Alpha__DOT__irf__DOT__rf__DOT__register[i]);
             if (i < 31) printf(", ");

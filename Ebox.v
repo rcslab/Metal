@@ -5,7 +5,7 @@
 module Ebox (output [31:0] ibox_ctrl,
             output reg [63:0] pc, pc2, ibox_result4,
             output reg mem_w_en,
-            output reg_w, m_reg_w_en, irf_m2_sel, mbox_m2_sel, mbox_m3_sel,
+            output reg_w, m_reg_w_en, irf_m2_sel, mbox_m2_sel, mbox_m3_sel, m_enter, m_exit,
             output [1:0] irf_m1_sel, mbox_m1_sel,
             output [2:0] irf_m3_sel, irf_m4_sel,
             output [7:0] literal,
@@ -22,7 +22,7 @@ module Ebox (output [31:0] ibox_ctrl,
   wire [63:0] mux1_out, mux7_out, mux8_out, mux9_out;
   wire [63:0] mux1_in[0:1], mux2_in[0:3], mux7_in[0:3], mux8_in[0:1], mux9_in[0:1];
   wire [31:0] inst2_in, inst3_in, inst4_in, inst5_in, mux3_in[0:3], mux4_in[0:3], mux5_in[0:3], mux6_in[0:1];
-  wire exc, bubble, jump, branch, stc, cmp_out, opr_format2, load2, ld_mr_dep, m_enter, m_exit, m_exit3, mrpcr3;
+  wire exc, bubble, jump, branch, stc, cmp_out, opr_format2, load2, ld_mr_dep, /*m_enter, m_exit,*/ m_exit3, mrpcr3;
   reg m_mode, jump3, jump4, jump5, load3, load4, cmov3, cmov4, cmov5, reg_w3, reg_w4, reg_w5, mrpcr4, mrpcr5;
   reg [63:0] pc3, saved_pc;
   
@@ -36,7 +36,7 @@ module Ebox (output [31:0] ibox_ctrl,
   assign jump = (inst2[31:26] == 6'h1A);
   assign branch = (inst2[31:30] == 2'h3);
   assign exc = exc3 | exc4;
-  assign bubble = branch | i_stall | ld_mr_dep;
+  assign bubble = branch | i_stall;
   assign cmov3 = inst3[31:26] == 6'h11 && (inst3[8:5] == 4'h4 || inst3[8:5] == 4'h6);
   assign stc = inst4[31:26] == 6'h2E || inst4[31:26] == 6'h2F;
   assign ld_mr_dep = (load3 | mrpcr3) && (inst2[20:16] == inst3[25:21] || inst2[25:21] == inst3[25:21]);
@@ -105,7 +105,7 @@ module Ebox (output [31:0] ibox_ctrl,
     load4 <= load3;
     mrpcr4 <= mrpcr3;
     mrpcr5 <= mrpcr4;
-    mem_w_en <= (~inst3[30] & ~load3) | stc;
+    mem_w_en <= (~inst3[30] & ~load3 & (|inst3[31:26])) | stc;
     jump3 <= jump;
     jump4 <= jump3;
     jump5 <= jump4;
@@ -125,7 +125,7 @@ module Ebox (output [31:0] ibox_ctrl,
   assign mux1_in[1] = pc;
   Mux #(.BITS(64), .WORDS(2)) mux1(
       .out (mux1_out),
-      .sel (bubble | d_stall),
+      .sel (bubble | ld_mr_dep | d_stall),
       .in (mux1_in)
       );
 
@@ -177,7 +177,7 @@ module Ebox (output [31:0] ibox_ctrl,
   assign mux3_in[3] = 0;
   Mux #(.BITS(32), .WORDS(4)) mux3(
       .out (inst2_in),
-      .sel ({d_stall, bubble | jump | exc | m_enter}),
+      .sel ({d_stall | ld_mr_dep, ~ld_mr_dep & (bubble | jump | exc | m_enter)}),
       .in (mux3_in)
       );
       
@@ -187,7 +187,7 @@ module Ebox (output [31:0] ibox_ctrl,
   assign mux4_in[3] = 0;
   Mux #(.BITS(32), .WORDS(4)) mux4(
       .out (inst3_in),
-      .sel ({d_stall, exc}),
+      .sel ({d_stall, exc | ld_mr_dep}),
       .in (mux4_in)
       );
       

@@ -6,23 +6,24 @@
 
 module Alpha (input clk,
   
-  output [63:0] ibox_result, pc, reg_w_data,
+  output [63:0] ibox_in1, ibox_in2, ibox_result, ibox_result4, pc, reg_w_data, mem_out,
   output [4:0] reg_w_addr,
-  output reg_w_en, reg_w,
+  output [2:0] irf_m3_sel, irf_m4_sel,
+  output reg_w_en, reg_w, m_enter, m_exit, mem_w_en,
   output [31:0] inst, inst2, inst3, inst4, inst5, ibox_ctrl);
 
-  wire [63:0] ibox_in1, ibox_in2, /*ibox_result,*/ ibox_result4,
-              /*reg_w_data,*/ reg_a, reg_b, reg_a4, reg_b5, /*pc,*/ pc2, mem_out, m_reg_out;
+  wire [63:0] /*ibox_in1, ibox_in2, ibox_result, ibox_result4,*/
+              /*reg_w_data,*/ reg_a, reg_b, reg_a4, reg_b5, /*pc,*/ pc2, /*mem_out,*/ m_reg_out;
   /*wire [31:0] inst;*/
   /*wire [31:0] ibox_ctrl;*/
-  wire [31:0] icache_out, mcache_out, mux1_in[0:1];
+  wire [31:0] icache_out, metal_out, mux1_in[0:1];
   wire [15:0] displacement;
   wire [7:0] literal;
   wire [4:0] /*reg_w_addr,*/ ra_addr, ra_addr_wb, rb_addr, rc_addr_wb;  
   wire [1:0] irf_m1_sel, mbox_m1_sel;
-  wire [2:0] irf_m3_sel, irf_m4_sel;
-  wire exc3, exc4, icache_stall, mcache_stall, i_stall, d_stall, metal_range;
-  wire /*reg_w,*/ /*reg_w_en,*/ m_reg_w_en, mem_w_en, irf_m2_sel, mbox_m2_sel, mbox_m3_sel;
+//  wire [2:0] irf_m3_sel, irf_m4_sel;
+  wire exc3, exc4, icache_stall, metal_stall, i_stall, d_stall, metal_range;
+  wire /*reg_w,*/ /*reg_w_en,*/ m_reg_w_en, /*mem_w_en,*/ irf_m2_sel, mbox_m2_sel, mbox_m3_sel;
 
   assign exc4 = 0;
   
@@ -34,17 +35,17 @@ module Alpha (input clk,
       .stall (icache_stall)
       );
 
-  Icache mcache (
-      .data (mcache_out),
+  Icache #(.Metal(1)) metal_mem (
+      .data (metal_out),
       .addr (pc),
       .read_en(metal_range ? 1 : 0),
-      .stall (mcache_stall)
+      .stall (metal_stall)
       );
 
-  assign i_stall = icache_stall | mcache_stall;
+  assign i_stall = icache_stall | metal_stall;
 
   assign mux1_in[0] = icache_out;
-  assign mux1_in[1] = mcache_out;
+  assign mux1_in[1] = metal_out;
   Mux #(.BITS(32), .WORDS(2)) mux1(
       .out (inst),
       .sel (metal_range),
@@ -70,6 +71,9 @@ module Alpha (input clk,
       .ibox_result4 (ibox_result4),
       //.mbox_ext_ctrl (),
       //.mbox_mem_ctrl (),
+        .m_enter(m_enter),
+        .m_exit(m_exit),
+
       .literal (literal),
       .displacement (displacement),
       .ra_addr (ra_addr),

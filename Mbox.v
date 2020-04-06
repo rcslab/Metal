@@ -1,4 +1,5 @@
 /* verilator lint_off DECLFILENAME */
+/* verilator lint_off UNUSED */
 
 `include "Basics.v"
 
@@ -79,16 +80,27 @@ endmodule
 
 /* verilator lint_off WIDTH */
 module DCache (output reg [63:0] data_out, output stall, input[63:0] data_in, addr, input clk, write_en);
+ // reg[31:0] temp[0:127];
   reg[7:0] dmem[0:1023];
   wire [9:0] a;
   assign stall = 0;
   assign a = addr[9:0];
+  integer i;
+  initial begin 
+    dmem[7] = 8'h80;
+    dmem[15] = 8'h8c;
+    dmem[23] = 8'h9c;
+//    $readmemh("data.mem", temp);
+//    for (i = 0; i < 128; i = i + 4)
+//      {dmem[i], dmem[i+1], dmem[i+2], dmem[i+3]} = temp[i/4];
+  end
   always@(negedge clk) begin
     if(write_en) begin
       {dmem[a], dmem[a+1], dmem[a+2], dmem[a+3], dmem[a+4], dmem[a+5], dmem[a+6], dmem[a+7]} <= data_in;
       data_out <= data_in;
     end
-    else data_out <= {dmem[a], dmem[a+1], dmem[a+2], dmem[a+3], dmem[a+4], dmem[a+5], dmem[a+6], dmem[addr+7]};
+    else begin data_out <= {dmem[a], dmem[a+1], dmem[a+2], dmem[a+3], dmem[a+4], dmem[a+5], dmem[a+6], dmem[addr+7]}; end
   end
 endmodule
+/* verilator lint_on UNUSED */
 /* verilator lint_on WIDTH */
