@@ -5,7 +5,7 @@
 module IRF (output reg [63:0] out1, out2, reg_a4, reg_b5,
             output [63:0] reg_a, reg_b,
             input [4:0] read_addr_a, read_addr_b, write_addr,
-            input [63:0] write_data, pc2, ibox_result3, ibox_result4, mem_out, m_reg_out,
+            input [63:0] write_data, pc, ibox_result3, ibox_result4, mem_out, m_reg_out,
             input [15:0] displacement,
             input [7:0] literal,
             input [1:0] mux1_sel,
@@ -39,7 +39,7 @@ module IRF (output reg [63:0] out1, out2, reg_a4, reg_b5,
         
   assign mux1_in[0] = reg_a;
   assign mux1_in[1] = {{48{displacement[15]}}, displacement[15:0]};
-  assign mux1_in[2] = pc2;
+  assign mux1_in[2] = pc;
   assign mux1_in[3] = 0;
   Mux #(.BITS(64), .WORDS(4)) mux1(
       .out (mux1_out),
@@ -59,7 +59,7 @@ module IRF (output reg [63:0] out1, out2, reg_a4, reg_b5,
   assign mux3_in[1] = ibox_result3;
   assign mux3_in[2] = ibox_result4;
   assign mux3_in[3] = mem_out;
-  assign mux4_in[4] = m_reg_out;
+  assign mux3_in[4] = m_reg_out;
   assign mux3_in[5] = reg_b3;
   assign mux3_in[6] = reg_b4;
   Mux #(.BITS(64), .WORDS(8)) mux3(

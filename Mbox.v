@@ -3,29 +3,32 @@
 
 `include "Basics.v"
 
-module Mbox (output [63:0] reg_w_data, mem_data_out, m_reg_out,
+module Mbox (output [63:0] reg_w_data, mem_data_out, m_reg_out, saved_pc,
             output [4:0] reg_w_addr,
-            output reg_w_en, stall,
-            input [63:0] ibox_result, reg_a4, reg_b5,
+            output reg_w_en, stall, exc,
+            input [63:0] ibox_result, reg_a4, reg_b5, pc3,
             input[4:0] ra_addr, rb_addr, rc_addr,
             input [1:0] mux1_sel,
-            input reg_w, m_reg_w_en, mem_w_en, /*mem_w_ctrl, ext_ctrl,*/ mux2_sel, mux3_sel, clk);
+            input m_enter, exc3, reg_w, m_reg_w_en, mem_w_en, /*mem_w_ctrl, ext_ctrl,*/ mux2_sel, mux3_sel, clk);
 
   reg [63:0] ibox_result5, mem_out5, m_reg_out5;
   wire [63:0] mux1_in[0:3];
   wire [4:0] mux2_in[0:1];
   wire mux3_in[0:1];
-  
+  reg exc34;
+
+  assign exc = 0;  
   always @(posedge clk) begin
     ibox_result5 <= ibox_result;
     mem_out5 <= mem_data_out;
     m_reg_out5 <= m_reg_out;
+    exc34 <= exc3;
   end
   
   DCache dcache (
         .data_out (mem_data_out),
         .stall (stall),
-        .data_in (reg_b5),
+        .data_in (reg_a4),
         .addr (ibox_result),
         .write_en (mem_w_en),
         .clk (clk)
@@ -33,9 +36,10 @@ module Mbox (output [63:0] reg_w_data, mem_data_out, m_reg_out,
 
   Metal_reg_file metal_regs (
       .reg_out (m_reg_out),
-      .addr (rb_addr[3:0]),
-      .write_data (reg_a4),
-      .write_en (m_reg_w_en),
+      .saved_pc (saved_pc),
+      .addr (m_enter ? 4'h7 : ((exc | exc34) ? 4'h6 : rb_addr[3:0])),
+      .write_data ((exc | exc34 | m_enter) ? pc3 : reg_a4),
+      .write_en (m_reg_w_en | m_enter | exc | exc34),
       .clk(clk)
       );
   
@@ -67,7 +71,7 @@ module Mbox (output [63:0] reg_w_data, mem_data_out, m_reg_out,
       
 endmodule
 
-module Metal_reg_file (output [63:0] reg_out,
+module Metal_reg_file (output [63:0] reg_out, saved_pc,
             input [3:0] addr,
             input [63:0] write_data,
             input write_en, clk);
@@ -76,6 +80,7 @@ module Metal_reg_file (output [63:0] reg_out,
     if (write_en)  register[addr] <= write_data;
   end
   assign reg_out = register[addr];
+  assign saved_pc = register[7];
 endmodule
 
 /* verilator lint_off WIDTH */

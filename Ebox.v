@@ -3,28 +3,28 @@
 `include "Basics.v"
       
 module Ebox (output [31:0] ibox_ctrl,
-            output reg [63:0] pc, pc2, ibox_result4,
+            output reg [63:0] pc, pc3, ibox_result4,
             output reg mem_w_en,
-            output reg_w, m_reg_w_en, irf_m2_sel, mbox_m2_sel, mbox_m3_sel, m_enter, m_exit,
+            output reg_w, m_reg_w_en, irf_m2_sel, mbox_m2_sel, mbox_m3_sel, m_enter_4, m_exit, cmp_out,
             output [1:0] irf_m1_sel, mbox_m1_sel,
             output [2:0] irf_m3_sel, irf_m4_sel,
             output [7:0] literal,
             output [15:0] displacement,
-            output [4:0] ra_addr, ra_addr_wb, rb_addr, rc_addr_wb,
+            output [4:0] ra_addr, ra_addr_wb, rb_addr, rb_addr_4, rc_addr_wb,
             input [31:0] inst,
-            input [63:0] reg_a, reg_b, ibox_result,
+            input [63:0] reg_a, reg_b, ibox_result, saved_pc,
             input i_stall, d_stall, exc3, exc4, clk,
 
   /* verilator lint_off UNUSED */          
   output reg [31:0] inst2, inst3, inst4, inst5);
   /* verilator lint_on UNUSED */
   wire [63:0] pc_in, pcp4, br_addr, jmp_addr, metal_addr;
-  wire [63:0] mux1_out, mux7_out, mux8_out, mux9_out;
-  wire [63:0] mux1_in[0:1], mux2_in[0:3], mux7_in[0:3], mux8_in[0:1], mux9_in[0:1];
+  wire [63:0] mux1_out, mux7_out, mux8_out;
+  wire [63:0] mux1_in[0:1], mux2_in[0:3], mux7_in[0:1], mux8_in[0:1];
   wire [31:0] inst2_in, inst3_in, inst4_in, inst5_in, mux3_in[0:3], mux4_in[0:3], mux5_in[0:3], mux6_in[0:1];
-  wire exc, bubble, jump, branch, stc, cmp_out, opr_format2, load2, ld_mr_dep, /*m_enter, m_exit,*/ m_exit3, mrpcr3;
+  wire exc, bubble, jump, branch, stc, /*cmp_out,*/ opr_format2, load2, ld_mr_dep, m_enter,/* m_exit,*/ m_exit3, mrpcr3;
   reg m_mode, jump3, jump4, jump5, load3, load4, cmov3, cmov4, cmov5, reg_w3, reg_w4, reg_w5, mrpcr4, mrpcr5;
-  reg [63:0] pc3, saved_pc;
+  reg [63:0] pc2;
   
   assign load2 = (inst2[31:26] == 6'h08 || inst2[31:26] == 6'h09 || inst2[31:26] == 6'h0A || inst2[31:26] == 6'h0B
                || inst2[31:26] == 6'h0C || inst2[31:26] == 6'h28 || inst2[31:26] == 6'h29 || inst2[31:26] == 6'h2A
@@ -41,6 +41,7 @@ module Ebox (output [31:0] ibox_ctrl,
   assign stc = inst4[31:26] == 6'h2E || inst4[31:26] == 6'h2F;
   assign ld_mr_dep = (load3 | mrpcr3) && (inst2[20:16] == inst3[25:21] || inst2[25:21] == inst3[25:21]);
   assign m_enter = (inst2[31:26] == 6'h19);
+  assign m_enter_4 = (inst4[31:26] == 6'h19);
   assign m_exit = (inst2[31:26] == 6'h1B);
   assign m_exit3 = (inst3[31:26] == 6'h1B);
   assign mrpcr3 = (inst3[31:26] == 6'h1D);
@@ -58,6 +59,7 @@ module Ebox (output [31:0] ibox_ctrl,
   assign ra_addr = inst2[25:21];
   assign rb_addr = inst2[20:16];
   assign ra_addr_wb = inst5[25:21];
+  assign rb_addr_4 = inst4[20:16];
   assign rc_addr_wb = inst5[4:0];
   
   always @* begin
@@ -113,7 +115,6 @@ module Ebox (output [31:0] ibox_ctrl,
     cmov5 <= cmov4;
     ibox_result4 <= ibox_result;
     if (m_enter | exc) begin
-      saved_pc <= mux7_out;
       m_mode <= 1;
     end
     if (m_exit3 & m_mode) begin /// exc?
@@ -129,32 +130,22 @@ module Ebox (output [31:0] ibox_ctrl,
       .in (mux1_in)
       );
 
-  assign mux7_in[0] = 0;
-  assign mux7_in[1] = pc;
-  assign mux7_in[2] = pc2;
-  assign mux7_in[3] = pc3;
-  Mux #(.BITS(64), .WORDS(4)) mux7(
+  assign mux7_in[0] = {48'b0, inst2[15:0]};
+  assign mux7_in[1] = 0; ///////////////////// exc_addr
+  Mux #(.BITS(64), .WORDS(2)) mux7(
       .out (mux7_out),
-      .sel (exc4 ? 3 : (exc3 ? 2 : (m_enter ? 1 : 0))),
+      .sel (exc),
       .in (mux7_in)
       );
 
-  assign mux8_in[0] = {48'b0, inst2[15:0]};
-  assign mux8_in[1] = 0; ///////////////////// exc_addr
+  assign metal_addr = (mux7_out << 2) | 64'hffffffffffff0000;
+
+  assign mux8_in[0] = saved_pc;
+  assign mux8_in[1] = metal_addr;
   Mux #(.BITS(64), .WORDS(2)) mux8(
       .out (mux8_out),
-      .sel (exc),
-      .in (mux8_in)
-      );
-
-  assign metal_addr = (mux8_out << 2) | 64'hffffffffffff0000;
-
-  assign mux9_in[0] = saved_pc;
-  assign mux9_in[1] = metal_addr;
-  Mux #(.BITS(64), .WORDS(2)) mux9(
-      .out (mux9_out),
       .sel (exc | m_enter),
-      .in (mux9_in)
+      .in (mux8_in)
       );
 
   assign pcp4 = pc + 4;
@@ -164,10 +155,10 @@ module Ebox (output [31:0] ibox_ctrl,
   assign mux2_in[0] = mux1_out;
   assign mux2_in[1] = br_addr;
   assign mux2_in[2] = jmp_addr;
-  assign mux2_in[3] = mux9_out;
+  assign mux2_in[3] = mux8_out;
   Mux #(.BITS(64), .WORDS(4)) mux2(
       .out (pc_in),
-      .sel ({jump | m_enter | m_exit | exc, (cmp_out & branch) | m_enter | m_exit | exc}),
+      .sel ({(jump & ~ld_mr_dep) | m_enter | m_exit | exc, (cmp_out & branch) | m_enter | m_exit | exc}),
       .in (mux2_in)
       );
   

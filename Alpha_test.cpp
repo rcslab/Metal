@@ -30,22 +30,30 @@ int main(int argc, char** argv) {
             break;
         }
         printf("\npc: %x\n", top->pc);
-//        cout << "alu in1: " << top->ibox_in1 << " in2: " << top->ibox_in2 << endl;;
+        cout << "alu in1: " << top->ibox_in1 << " in2: " << top->ibox_in2 << endl;;
         cout << "alu result: " << top->ibox_result << endl;
-//        std::bitset<32> x(top->ibox_ctrl);
+        std::bitset<32> x(top->ibox_ctrl);
 //         cout << "ibox_ctrl: " << x << endl;
         printf("inst1: %x \ninst2: %x \ninst3: %x \ninst4: %x \ninst5: %x\n",
                top->inst, top->inst2, top->inst3, top->inst4, top->inst5);
 //         printf("DEBUG: In1: %x, In2: %x\n",
 //                top->Alpha__DOT__ibox_in1, top->Alpha__DOT__ibox_in2);
 //         cout << "reg_w_addr: " << int(top->reg_w_addr) << " reg_w_data: " << top->reg_w_data << " reg_w_en: " << int(top->reg_w_en) << " reg_w: " << int(top->reg_w) << " m3_sel: " << int(top->mbox_m3_sel) << endl;
-//        cout << "mux3_sel " << int(top->irf_m3_sel) << " mux4_sel " << int(top->irf_m4_sel) << endl;
-        cout << "mem_addr: " << int(top->ibox_result4) << endl;
-        if (top->mem_w_en == 1) cout << "errooorrrrrrrrrrrrrrr" << endl;
-        cout << "mem_out: " << top->mem_out << endl;
-        cout << "menter " << int(top->m_enter) << " mexit " << int(top->m_exit) << endl;
+        cout << "mux3_sel " << int(top->irf_m3_sel) << " mux4_sel " << int(top->irf_m4_sel) << endl;
+//        cout << "mem_addr: " << int(top->ibox_result4) << endl;
+//        if (top->mem_w_en == 1) cout << "error" << endl;
+//        cout << "mem_out: " << top->mem_out << endl;
+        cout << "menter_4 " << int(top->m_enter_4) << " mexit " << int(top->m_exit) << endl;
+//        cout << "cmp_out " << int(top->cmp_out) << endl;
+//        cout << "reg_a " << int(top->reg_a) << endl;
+//        cout << "m_reg_out " << top->m_reg_out << endl;
         for (int i = 0; i < 5; i++) {
             printf("Reg[%d]=%x", i, top->Alpha__DOT__irf__DOT__rf__DOT__register[i]);
+            if (i < 31) printf(", ");
+        }
+        printf("\n");
+        for (int i = 0; i < 8; i++) {
+            printf("Reg[%d]=%x", i, top->Alpha__DOT__mbox__DOT__metal_regs__DOT__register[i]);
             if (i < 31) printf(", ");
         }
         printf("\n");

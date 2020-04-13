@@ -1,5 +1,6 @@
 # Enum Declaration
 for i in range(32):
+    exec('MR%d = %d' % (i, i))
     exec('R%d = %d' % (i, i))
 
 meta = {
