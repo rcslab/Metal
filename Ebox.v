@@ -2,18 +2,20 @@
 
 `include "Basics.v"
       
-module Ebox (output [31:0] ibox_ctrl,
-            output reg [63:0] pc, pc3, ibox_result4,
+module Ebox (output [63:0] m_reg_data,
+            output [31:0] ibox_ctrl,
+            output reg [63:0] pc, ibox_result4,
             output reg mem_w_en,
-            output reg_w, m_reg_w_en, irf_m2_sel, mbox_m2_sel, mbox_m3_sel, m_enter_4, m_exit, cmp_out,
+            output reg_w, m_reg_w_en, irf_m2_sel, mbox_m2_sel, mbox_m3_sel, m_exit, cmp_out,
             output [1:0] irf_m1_sel, mbox_m1_sel,
             output [2:0] irf_m3_sel, irf_m4_sel,
             output [7:0] literal,
             output [15:0] displacement,
-            output [4:0] ra_addr, ra_addr_wb, rb_addr, rb_addr_4, rc_addr_wb,
+            output [4:0] ra_addr, ra_addr_wb, rb_addr, rc_addr_wb,
+            output [3:0] m_reg_addr,
             input [31:0] inst,
             input [63:0] reg_a, reg_b, ibox_result, saved_pc,
-            input i_stall, d_stall, exc3, exc4, clk,
+            input i_stall, d_stall, ibox_exc, mbox_exc, clk,
 
   /* verilator lint_off UNUSED */          
   output reg [31:0] inst2, inst3, inst4, inst5);
@@ -22,9 +24,15 @@ module Ebox (output [31:0] ibox_ctrl,
   wire [63:0] mux1_out, mux7_out, mux8_out;
   wire [63:0] mux1_in[0:1], mux2_in[0:3], mux7_in[0:1], mux8_in[0:1];
   wire [31:0] inst2_in, inst3_in, inst4_in, inst5_in, mux3_in[0:3], mux4_in[0:3], mux5_in[0:3], mux6_in[0:1];
-  wire exc, bubble, jump, branch, stc, /*cmp_out,*/ opr_format2, load2, ld_mr_dep, m_enter,/* m_exit,*/ m_exit3, mrpcr3;
-  reg m_mode, jump3, jump4, jump5, load3, load4, cmov3, cmov4, cmov5, reg_w3, reg_w4, reg_w5, mrpcr4, mrpcr5;
-  reg [63:0] pc2;
+  wire exc, bubble, jump, branch, stc, /*cmp_out,*/ opr_format2, load2;
+  wire ld_mrw_dep, m_enter,/* m_exit,*/ m_exit_3, m_enter_3, mrpcr3, mwpcr3;
+  reg exc_addr_w, exc34, m_mode, jump3, jump4, jump5, load3, load4, cmov3, cmov4, cmov5;
+  reg reg_w3, reg_w4, reg_w5, mrpcr4, mrpcr5, m_enter_4;
+  reg [63:0] pc2, pc3, pc4;
+  /* verilator lint_off UNUSED */
+  wire [4:0] rb_addr_4;
+  /* verilator lint_on UNUSED */
+  wire exc3, exc4, metal_exc;
   
   assign load2 = (inst2[31:26] == 6'h08 || inst2[31:26] == 6'h09 || inst2[31:26] == 6'h0A || inst2[31:26] == 6'h0B
                || inst2[31:26] == 6'h0C || inst2[31:26] == 6'h28 || inst2[31:26] == 6'h29 || inst2[31:26] == 6'h2A
@@ -35,24 +43,34 @@ module Ebox (output [31:0] ibox_ctrl,
                    
   assign jump = (inst2[31:26] == 6'h1A);
   assign branch = (inst2[31:30] == 2'h3);
+  assign exc3 = ibox_exc | metal_exc;
+  assign exc4 = mbox_exc;
   assign exc = exc3 | exc4;
   assign bubble = branch | i_stall;
   assign cmov3 = inst3[31:26] == 6'h11 && (inst3[8:5] == 4'h4 || inst3[8:5] == 4'h6);
   assign stc = inst4[31:26] == 6'h2E || inst4[31:26] == 6'h2F;
-  assign ld_mr_dep = (load3 | mrpcr3) && (inst2[20:16] == inst3[25:21] || inst2[25:21] == inst3[25:21]);
+  assign ld_mrw_dep = ((load3 | mrpcr3) && (inst2[20:16] == inst3[25:21] || inst2[25:21] == inst3[25:21]))
+                      || (mwpcr3 & m_exit & inst3[20:16] == 5'h0f);
   assign m_enter = (inst2[31:26] == 6'h19);
+  assign m_enter_3 = (inst2[31:26] == 6'h19);
   assign m_enter_4 = (inst4[31:26] == 6'h19);
   assign m_exit = (inst2[31:26] == 6'h1B);
-  assign m_exit3 = (inst3[31:26] == 6'h1B);
+  assign m_exit_3 = (inst3[31:26] == 6'h1B);
   assign mrpcr3 = (inst3[31:26] == 6'h1D);
-  assign m_reg_w_en = (inst4[31:26] == 6'h1E); //mwpcr
+  assign mwpcr3 = (inst3[31:26] == 6'h1E);
 
-  assign irf_m1_sel = {jump, ~inst2[30]};
+  assign irf_m1_sel = {jump | m_enter, ~inst2[30]};
   assign irf_m2_sel = inst2[12] & opr_format2;
 
   assign mbox_m1_sel = {cmov5 | mrpcr5, ~inst5[30] | mrpcr5};
   assign mbox_m2_sel = ~inst5[30] | jump5 | mrpcr5;
   assign mbox_m3_sel = cmov5;
+  assign m_reg_addr = m_enter_4 ? 4'hf : (exc_addr_w ? 4'he : rb_addr_4[3:0]);
+  assign m_reg_data = (exc_addr_w) ? pc4 : ibox_result4;
+  assign m_reg_w_en = (inst4[31:26] == 6'h1E) | m_enter_4 | exc_addr_w;
+  assign metal_exc = ~m_mode & (mwpcr3 | mrpcr3);
+
+
   assign reg_w = reg_w5 | mrpcr5;
   assign literal = inst2[20:13];
   assign displacement = inst2[15:0];
@@ -96,10 +114,13 @@ module Ebox (output [31:0] ibox_ctrl,
     pc <= pc_in;
     pc2 <= pc;
     pc3 <= pc2;
+    pc4 <= pc3;
     inst2 <= inst2_in;
     inst3 <= inst3_in;
     inst4 <= inst4_in;
     inst5 <= inst5_in;
+    exc34 <= exc3;
+    exc_addr_w <= exc34 | exc4;
     reg_w3 <= opr_format2 | load2 | jump;
     reg_w4 <= reg_w3;
     reg_w5 <= reg_w4;
@@ -114,10 +135,10 @@ module Ebox (output [31:0] ibox_ctrl,
     cmov4 <= cmov3;
     cmov5 <= cmov4;
     ibox_result4 <= ibox_result;
-    if (m_enter | exc) begin
+    if (m_enter_3 | exc) begin
       m_mode <= 1;
     end
-    if (m_exit3 & m_mode) begin /// exc?
+    if (m_exit_3) begin
       m_mode <= 0;
     end
   end
@@ -126,11 +147,11 @@ module Ebox (output [31:0] ibox_ctrl,
   assign mux1_in[1] = pc;
   Mux #(.BITS(64), .WORDS(2)) mux1(
       .out (mux1_out),
-      .sel (bubble | ld_mr_dep | d_stall),
+      .sel (bubble | ld_mrw_dep | d_stall),
       .in (mux1_in)
       );
 
-  assign mux7_in[0] = {48'b0, inst2[15:0]};
+  assign mux7_in[0] = {58'b0, inst2[5:0]};
   assign mux7_in[1] = 0; ///////////////////// exc_addr
   Mux #(.BITS(64), .WORDS(2)) mux7(
       .out (mux7_out),
@@ -158,7 +179,7 @@ module Ebox (output [31:0] ibox_ctrl,
   assign mux2_in[3] = mux8_out;
   Mux #(.BITS(64), .WORDS(4)) mux2(
       .out (pc_in),
-      .sel ({(jump & ~ld_mr_dep) | m_enter | m_exit | exc, (cmp_out & branch) | m_enter | m_exit | exc}),
+      .sel ({(jump & ~ld_mrw_dep) | m_enter | m_exit | exc, (cmp_out & branch) | m_enter | m_exit | exc}),
       .in (mux2_in)
       );
   
@@ -168,7 +189,7 @@ module Ebox (output [31:0] ibox_ctrl,
   assign mux3_in[3] = 0;
   Mux #(.BITS(32), .WORDS(4)) mux3(
       .out (inst2_in),
-      .sel ({d_stall | ld_mr_dep, ~ld_mr_dep & (bubble | jump | exc | m_enter)}),
+      .sel ({d_stall | ld_mrw_dep, ~ld_mrw_dep & (bubble | jump | exc | m_enter | m_exit)}),
       .in (mux3_in)
       );
       
@@ -178,7 +199,7 @@ module Ebox (output [31:0] ibox_ctrl,
   assign mux4_in[3] = 0;
   Mux #(.BITS(32), .WORDS(4)) mux4(
       .out (inst3_in),
-      .sel ({d_stall, exc | ld_mr_dep}),
+      .sel ({d_stall, exc | ld_mrw_dep}),
       .in (mux4_in)
       );
       

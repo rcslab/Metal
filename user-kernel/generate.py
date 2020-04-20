@@ -153,12 +153,12 @@ class CodeBlock:
         self.binary.append(opcode << 26 | ra << 21 | self.twos_comp(disp, 21))
         self.asm.append('%s R%d, %s' % (op, ra, hex(disp)))
 
-    def OIF(self, op, ra, rb, rc, literal, lit):
+    def OIF(self, op, ra, rb, rc, lit = False):
         opcode = meta[op]['code']
         func = meta[op]['func']
         if lit:
-            self.binary.append(opcode << 26 | ra << 21 | self.twos_comp(literal, 8) << 13 | 1 << 12 | func << 5 | rc)
-            self.asm.append('%s R%d, #%s, R%d' % (op, ra, hex(literal), rc))
+            self.binary.append(opcode << 26 | ra << 21 | self.twos_comp(rb, 8) << 13 | 1 << 12 | func << 5 | rc)
+            self.asm.append('%s R%d, #%s, R%d' % (op, ra, hex(rb), rc))
         else:
             self.binary.append(opcode << 26 | ra << 21 | rb << 16 | func << 5 | rc)
             self.asm.append('%s R%d, R%d, R%d' % (op, ra, rb, rc))
@@ -176,21 +176,23 @@ class CodeBlock:
     def get(self):
         result = '// %s\n' % self.name
         for bin_code, asm_code in zip(self.binary, self.asm):
-            result += '%s // %s\n' % (hex(bin_code)[2:].zfill(8), asm_code)
+            instr = hex(bin_code)[2:].zfill(8)
+            instr = ' '.join([instr[i:i+2] for i in range(0, len(instr), 2)])
+            result += '%s // %s\n' % (instr, asm_code)
         return result
 
 if __name__ == '__main__':
     code = CodeBlock('Fibonacci')
-    code.ADDQ(R31, 0, R0, 10, True)
-    code.ADDQ(R31, 0, R1, 0, True)
-    code.ADDQ(R31, 0, R2, 1, True)
-    code.ADDQ(R31, 0, R3, 0, True)
-    code.SUBQ(R3, R0, R4, 0, False)
+    code.ADDQ(R31, 10, R0, True)
+    code.ADDQ(R31, 0, R1, True)
+    code.ADDQ(R31, 1, R2, True)
+    code.ADDQ(R31, 0, R3, True)
+    code.SUBQ(R3, R0, R4)
     code.BEQ(R4, +5)
-    code.ADDQ(R1, R2, R4, 0, False)
-    code.ADDQ(R31, R2, R1, 0, False)
-    code.ADDQ(R31, R4, R2, 0, False)
-    code.ADDQ(R3, 0, R3, 1, True)
+    code.ADDQ(R1, R2, R4)
+    code.ADDQ(R31, R2, R1)
+    code.ADDQ(R31, R4, R2)
+    code.ADDQ(R3, 1, R3, True)
     code.BR(R31, -7)
     code.STQ(R1, R31, 0)
     print(code.get())

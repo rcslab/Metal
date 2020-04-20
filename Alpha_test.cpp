@@ -30,9 +30,9 @@ int main(int argc, char** argv) {
             break;
         }
         printf("\npc: %x\n", top->pc);
-        cout << "alu in1: " << top->ibox_in1 << " in2: " << top->ibox_in2 << endl;;
+//        cout << "alu in1: " << top->ibox_in1 << " in2: " << top->ibox_in2 << endl;;
         cout << "alu result: " << top->ibox_result << endl;
-        std::bitset<32> x(top->ibox_ctrl);
+//        std::bitset<32> x(top->ibox_ctrl);
 //         cout << "ibox_ctrl: " << x << endl;
         printf("inst1: %x \ninst2: %x \ninst3: %x \ninst4: %x \ninst5: %x\n",
                top->inst, top->inst2, top->inst3, top->inst4, top->inst5);
@@ -43,20 +43,29 @@ int main(int argc, char** argv) {
 //        cout << "mem_addr: " << int(top->ibox_result4) << endl;
 //        if (top->mem_w_en == 1) cout << "error" << endl;
 //        cout << "mem_out: " << top->mem_out << endl;
-        cout << "menter_4 " << int(top->m_enter_4) << " mexit " << int(top->m_exit) << endl;
+        cout << " mexit " << int(top->m_exit) << endl;
 //        cout << "cmp_out " << int(top->cmp_out) << endl;
 //        cout << "reg_a " << int(top->reg_a) << endl;
-//        cout << "m_reg_out " << top->m_reg_out << endl;
+//        cout << "irf_m1_sel " << int(top->irf_m1_sel) << endl;
+//        cout << "m_reg_data " << top->m_reg_data << endl;
+//        cout << "m_reg_addr " << int(top->m_reg_addr) << endl;
+//        cout << "m_reg_w_en " << int(top->m_reg_w_en) << endl;
+//        printf("br addr %x\n", top->Alpha__DOT__ebox__DOT__mux2_in[1]);
         for (int i = 0; i < 5; i++) {
             printf("Reg[%d]=%x", i, top->Alpha__DOT__irf__DOT__rf__DOT__register[i]);
+            if (i < 5) printf(", ");
+        }
+        printf("Reg[16]=%x, ", top->Alpha__DOT__irf__DOT__rf__DOT__register[16]);
+        printf("Reg[27]=%x, ", top->Alpha__DOT__irf__DOT__rf__DOT__register[16]);
+        printf("\n");
+        printf("Reg[0]=%x", top->Alpha__DOT__mbox__DOT__metal_regs__DOT__register[0]);
+        printf(", Reg[1]=%x", top->Alpha__DOT__mbox__DOT__metal_regs__DOT__register[1]);
+        printf(", Reg[15]=%x\n", top->Alpha__DOT__mbox__DOT__metal_regs__DOT__register[15]);
+        /*for (int i = 0; i < 8; i++) {
+            printf("Reg[%d]=%x", i, top->Alpha__DOT__mbox__DOT__metal_regs__DOT__register[0]);
             if (i < 31) printf(", ");
         }
-        printf("\n");
-        for (int i = 0; i < 8; i++) {
-            printf("Reg[%d]=%x", i, top->Alpha__DOT__mbox__DOT__metal_regs__DOT__register[i]);
-            if (i < 31) printf(", ");
-        }
-        printf("\n");
+        printf("\n");*/
     }
     
     top->final();

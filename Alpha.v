@@ -6,24 +6,27 @@
 
 module Alpha (input clk,
   
-  output [63:0] ibox_in1, ibox_in2, ibox_result, ibox_result4, pc, reg_w_data, mem_out, reg_a, m_reg_out,
+  output [63:0] ibox_in1, ibox_in2, ibox_result, ibox_result4, pc, reg_w_data, mem_out, reg_a, m_reg_out, m_reg_data,
   output [4:0] reg_w_addr,
+  output [3:0] m_reg_addr,
   output [2:0] irf_m3_sel, irf_m4_sel,
-  output reg_w_en, reg_w, m_enter_4, m_exit, mem_w_en, cmp_out,
+  output [1:0] irf_m1_sel,
+  output reg_w_en, reg_w, m_exit, mem_w_en, cmp_out, m_reg_w_en,
   output [31:0] inst, inst2, inst3, inst4, inst5, ibox_ctrl);
 
   wire [63:0] /*ibox_in1, ibox_in2, ibox_result, ibox_result4,*/
-              /*reg_w_data,*/ pc3, saved_pc, /*reg_a,*/ reg_b, reg_a4, reg_b5/*, pc, mem_out, m_reg_out*/;
+              /*reg_w_data,*/ saved_pc, /*reg_a,*/ reg_b, reg_a4, reg_b5/*, pc, mem_out, m_reg_out, m_reg_data*/;
   /*wire [31:0] inst;*/
   /*wire [31:0] ibox_ctrl;*/
   wire [31:0] icache_out, metal_out, mux1_in[0:1];
   wire [15:0] displacement;
   wire [7:0] literal;
-  wire [4:0] /*reg_w_addr,*/ ra_addr, ra_addr_wb, rb_addr, rb_addr_4, rc_addr_wb;  
-  wire [1:0] irf_m1_sel, mbox_m1_sel;
+  wire [4:0] /*reg_w_addr,*/ ra_addr, ra_addr_wb, rb_addr, rc_addr_wb;  
+ // wire [3:0] m_reg_addr;
+  wire [1:0] /*irf_m1_sel,*/ mbox_m1_sel;
 //  wire [2:0] irf_m3_sel, irf_m4_sel;
-  wire exc3, exc4, icache_stall, metal_stall, i_stall, d_stall, metal_range;
-  wire /*reg_w,*/ /*reg_w_en,*/ m_reg_w_en, /*mem_w_en,*/ irf_m2_sel, mbox_m2_sel, mbox_m3_sel;
+  wire ibox_exc, mbox_exc, icache_stall, metal_stall, i_stall, d_stall, metal_range;
+  wire /*reg_w,*/ /*reg_w_en, m_reg_w_en, mem_w_en,*/ irf_m2_sel, mbox_m2_sel, mbox_m3_sel;
 
   
   assign metal_range = (pc >= 64'hffffffffffff0000);
@@ -56,7 +59,6 @@ module Alpha (input clk,
       // outputs:
       .ibox_ctrl (ibox_ctrl),
       .pc (pc),
-      .pc3 (pc3),
       .reg_w (reg_w),
       .m_reg_w_en (m_reg_w_en),
       .mem_w_en (mem_w_en),
@@ -67,19 +69,17 @@ module Alpha (input clk,
       .mbox_m1_sel (mbox_m1_sel),
       .mbox_m2_sel (mbox_m2_sel),
       .mbox_m3_sel (mbox_m3_sel),
+      .m_reg_addr (m_reg_addr),
+      .m_reg_data (m_reg_data),
       .ibox_result4 (ibox_result4),
-      .m_enter_4 (m_enter_4),
       //.mbox_ext_ctrl (),
       //.mbox_mem_ctrl (),
-        .m_exit(m_exit),
-        .cmp_out (cmp_out),
 
       .literal (literal),
       .displacement (displacement),
       .ra_addr (ra_addr),
       .ra_addr_wb (ra_addr_wb),
       .rb_addr (rb_addr),
-      .rb_addr_4 (rb_addr_4),
       .rc_addr_wb (rc_addr_wb),
       
       // debug:
@@ -87,6 +87,8 @@ module Alpha (input clk,
       .inst3 (inst3),
       .inst4 (inst4),
       .inst5 (inst5),
+      .m_exit(m_exit),
+      .cmp_out (cmp_out),
       
       // inputs:
       .inst (inst),
@@ -96,8 +98,8 @@ module Alpha (input clk,
       .d_stall (d_stall),
       .ibox_result (ibox_result),
       .saved_pc (saved_pc),
-      .exc3 (exc3),
-      .exc4 (exc4),
+      .ibox_exc (ibox_exc),
+      .mbox_exc (mbox_exc),
       .clk (clk)
       );
       
@@ -134,7 +136,7 @@ module Alpha (input clk,
       .b (ibox_in2),
       .result (ibox_result),
       .control (ibox_ctrl),
-      .ibox_flag (exc3)
+      .ibox_flag (ibox_exc)
       );
       
   Mbox mbox (
@@ -146,25 +148,23 @@ module Alpha (input clk,
       .mem_data_out (mem_out),
       .m_reg_out (m_reg_out),
       .saved_pc (saved_pc),
-      .exc (exc4),
+      .exc_out (mbox_exc),
       // inputs:
       .ibox_result (ibox_result4),
       .reg_a4 (reg_a4),
       .reg_b5 (reg_b5),
       .ra_addr (ra_addr_wb),
-      .rb_addr (rb_addr_4),
       .rc_addr (rc_addr_wb),
       .mem_w_en (mem_w_en),
       .reg_w (reg_w),
+      .m_reg_addr (m_reg_addr),
+      .m_reg_data (m_reg_data),
       .m_reg_w_en (m_reg_w_en),
-      .m_enter (m_enter_4),
-      .pc3 (pc3),
       //.mem_w_ctrl (), 
       //.ext_ctrl (),
       .mux1_sel (mbox_m1_sel),
       .mux2_sel (mbox_m2_sel),
       .mux3_sel (mbox_m3_sel),
-      .exc3 (exc3),
       .clk (clk)
       );
       

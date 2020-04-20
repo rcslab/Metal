@@ -5,24 +5,23 @@
 
 module Mbox (output [63:0] reg_w_data, mem_data_out, m_reg_out, saved_pc,
             output [4:0] reg_w_addr,
-            output reg_w_en, stall, exc,
-            input [63:0] ibox_result, reg_a4, reg_b5, pc3,
-            input[4:0] ra_addr, rb_addr, rc_addr,
+            output reg_w_en, stall, exc_out,
+            input [63:0] ibox_result, reg_a4, reg_b5, m_reg_data,
+            input [4:0] ra_addr, rc_addr,
+            input [3:0] m_reg_addr,
             input [1:0] mux1_sel,
-            input m_enter, exc3, reg_w, m_reg_w_en, mem_w_en, /*mem_w_ctrl, ext_ctrl,*/ mux2_sel, mux3_sel, clk);
+            input reg_w, m_reg_w_en, mem_w_en, /*mem_w_ctrl, ext_ctrl,*/ mux2_sel, mux3_sel, clk);
 
   reg [63:0] ibox_result5, mem_out5, m_reg_out5;
   wire [63:0] mux1_in[0:3];
   wire [4:0] mux2_in[0:1];
   wire mux3_in[0:1];
-  reg exc34;
 
-  assign exc = 0;  
+  assign exc_out = 0;  
   always @(posedge clk) begin
     ibox_result5 <= ibox_result;
     mem_out5 <= mem_data_out;
     m_reg_out5 <= m_reg_out;
-    exc34 <= exc3;
   end
   
   DCache dcache (
@@ -37,9 +36,9 @@ module Mbox (output [63:0] reg_w_data, mem_data_out, m_reg_out, saved_pc,
   Metal_reg_file metal_regs (
       .reg_out (m_reg_out),
       .saved_pc (saved_pc),
-      .addr (m_enter ? 4'h7 : ((exc | exc34) ? 4'h6 : rb_addr[3:0])),
-      .write_data ((exc | exc34 | m_enter) ? pc3 : reg_a4),
-      .write_en (m_reg_w_en | m_enter | exc | exc34),
+      .addr (m_reg_addr),
+      .write_data (m_reg_data),
+      .write_en (m_reg_w_en),
       .clk(clk)
       );
   
@@ -80,24 +79,21 @@ module Metal_reg_file (output [63:0] reg_out, saved_pc,
     if (write_en)  register[addr] <= write_data;
   end
   assign reg_out = register[addr];
-  assign saved_pc = register[7];
+  assign saved_pc = register[15];
 endmodule
 
 /* verilator lint_off WIDTH */
 module DCache (output reg [63:0] data_out, output stall, input[63:0] data_in, addr, input clk, write_en);
- // reg[31:0] temp[0:127];
   reg[7:0] dmem[0:1023];
   wire [9:0] a;
   assign stall = 0;
   assign a = addr[9:0];
   integer i;
   initial begin 
-    dmem[7] = 8'h80;
-    dmem[15] = 8'h8c;
-    dmem[23] = 8'h9c;
-//    $readmemh("data.mem", temp);
-//    for (i = 0; i < 128; i = i + 4)
-//      {dmem[i], dmem[i+1], dmem[i+2], dmem[i+3]} = temp[i/4];
+    $readmemh("data.mem", dmem);
+    //dmem[7] =8'h80;
+    //dmem[15] =8'h94;
+    //dmem[23] =8'hac;
   end
   always@(negedge clk) begin
     if(write_en) begin
