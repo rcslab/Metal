@@ -26,6 +26,7 @@ user.ADDQ(R31, 1, R16, True)
 user.MENTER(0) # inc_ctr
 user.ADDQ(R31, 2, R16, True)
 user.MENTER(0) # read_ctr
+user.ICEEX()
 user.BR(R0, -1)
 print(user.get(), file = imem)
 

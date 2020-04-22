@@ -132,6 +132,9 @@ meta = {
     'MEXIT': {'code': 0x1B, 'format': 'PIF'},
     'MRPCR': {'code': 0x1D, 'format': 'MIF'},
     'MWPCR': {'code': 0x1E, 'format': 'MIF'},
+
+    'ICEBP': {'code': 0x06, 'format': 'ICE'},
+    'ICEEX': {'code': 0x07, 'format': 'ICE'},
 }
 
 class CodeBlock:
@@ -167,6 +170,11 @@ class CodeBlock:
         opcode = meta[op]['code']
         self.binary.append(opcode << 26 | disp)
         self.asm.append('%s %s' % (op, hex(disp)))
+
+    def ICE(self, op):
+        opcode = meta[op]['code']
+        self.binary.append(opcode << 26)
+        self.asm.append('%s' % (op))
 
     def __getattr__(self, name):
         op = name.upper()

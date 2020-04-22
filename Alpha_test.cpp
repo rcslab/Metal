@@ -6,6 +6,7 @@
 
 using namespace std;
 
+bool signal_dump = 1;
 vluint64_t main_time = 0;       // Current simulation time
 
 double sc_time_stamp () {       // Called by $time in Verilog
@@ -25,17 +26,34 @@ int main(int argc, char** argv) {
         top->eval();
         top->clk = 1;
         top->eval();
-        if (top->pc == 0x24) {
-//             cout << top->Alpha__DOT__irf__DOT__rf__DOT__register[1] << endl;
-            break;
+	if (top->inst == 0x1D000000) {
+	    printf("ICEBP!\n");
+	}
+
+        printf("\npc: 0x%08x\n", top->pc);
+        printf("inst1: 0x%08x inst2: 0x%08x, inst3: 0x%08x \ninst4: 0x%08x inst5: 0x%08x\n",
+               top->inst, top->inst2, top->inst3, top->inst4, top->inst5);
+	// Dump Regular Registers
+        for (int i = 0; i < 32; i++) {
+            printf("%%r%-2d=%08x, ", i, top->Alpha__DOT__irf__DOT__rf__DOT__register[i]);
+            if ((i + 1) % 4 == 0)
+		printf("\n");
         }
-        printf("\npc: %x\n", top->pc);
-//        cout << "alu in1: " << top->ibox_in1 << " in2: " << top->ibox_in2 << endl;;
+
+	// Dump Metal Registers
+        for (int i = 0; i < 32; i++) {
+	    printf("%%mr%-2d=0x%08x, ", i, top->Alpha__DOT__mbox__DOT__metal_regs__DOT__register[i]);
+            if ((i + 1) % 4 == 0)
+		printf("\n");
+        }
+
+	if (signal_dump) {
+	printf("----- SIGNAL DUMP -----\n");
+//      cout << "alu in1: " << top->ibox_in1 << " in2: " << top->ibox_in2 << 
+//      endl;;
         cout << "alu result: " << top->ibox_result << endl;
 //        std::bitset<32> x(top->ibox_ctrl);
 //         cout << "ibox_ctrl: " << x << endl;
-        printf("inst1: %x \ninst2: %x \ninst3: %x \ninst4: %x \ninst5: %x\n",
-               top->inst, top->inst2, top->inst3, top->inst4, top->inst5);
 //         printf("DEBUG: In1: %x, In2: %x\n",
 //                top->Alpha__DOT__ibox_in1, top->Alpha__DOT__ibox_in2);
 //         cout << "reg_w_addr: " << int(top->reg_w_addr) << " reg_w_data: " << top->reg_w_data << " reg_w_en: " << int(top->reg_w_en) << " reg_w: " << int(top->reg_w) << " m3_sel: " << int(top->mbox_m3_sel) << endl;
@@ -51,21 +69,13 @@ int main(int argc, char** argv) {
 //        cout << "m_reg_addr " << int(top->m_reg_addr) << endl;
 //        cout << "m_reg_w_en " << int(top->m_reg_w_en) << endl;
 //        printf("br addr %x\n", top->Alpha__DOT__ebox__DOT__mux2_in[1]);
-        for (int i = 0; i < 5; i++) {
-            printf("Reg[%d]=%x", i, top->Alpha__DOT__irf__DOT__rf__DOT__register[i]);
-            if (i < 5) printf(", ");
+	printf("----- END DUMP -----\n");
+	}
+
+        if (top->inst == 0x1C000000) {
+	    printf("ICEEX encountered exiting!\n");
+            break;
         }
-        printf("Reg[16]=%x, ", top->Alpha__DOT__irf__DOT__rf__DOT__register[16]);
-        printf("Reg[27]=%x, ", top->Alpha__DOT__irf__DOT__rf__DOT__register[16]);
-        printf("\n");
-        printf("Reg[0]=%x", top->Alpha__DOT__mbox__DOT__metal_regs__DOT__register[0]);
-        printf(", Reg[1]=%x", top->Alpha__DOT__mbox__DOT__metal_regs__DOT__register[1]);
-        printf(", Reg[15]=%x\n", top->Alpha__DOT__mbox__DOT__metal_regs__DOT__register[15]);
-        /*for (int i = 0; i < 8; i++) {
-            printf("Reg[%d]=%x", i, top->Alpha__DOT__mbox__DOT__metal_regs__DOT__register[0]);
-            if (i < 31) printf(", ");
-        }
-        printf("\n");*/
     }
     
     top->final();
