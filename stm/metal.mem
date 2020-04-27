@@ -1,0 +1,142 @@
+// Metal_table
+c0 00 00 00 // BR R0, 0x0
+c0 00 00 00 // BR R0, 0x0
+c0 00 00 00 // BR R0, 0x0
+c0 00 00 00 // BR R0, 0x0
+c0 00 00 3b // BR R0, 0x3b
+c0 00 00 3d // BR R0, 0x3d
+c0 00 00 40 // BR R0, 0x40
+c0 00 00 4e // BR R0, 0x4e
+c0 00 00 61 // BR R0, 0x61
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+00 00 00 00 // Padding
+// TInit
+b7 ff 10 00 // STQ R31, 0x1000(R31)
+b7 ff 10 08 // STQ R31, 0x1008(R31)
+6c 00 00 00 // MEXIT 0x0
+// TStart
+a4 3f 10 00 // LDQ R1, 0x1000(R31)
+b4 30 00 00 // STQ R1, 0x0(R16)
+b7 f0 00 08 // STQ R31, 0x8(R16)
+6c 00 00 00 // MEXIT 0x0
+// TRead
+a7 70 00 08 // LDQ R27, 0x8(R16)
+43 ff 04 03 // ADDQ R31, R31, R3
+40 7b 09 a4 // CMPLT R3, R27, R4
+e4 80 00 09 // BEQ R4, 0x9
+48 60 97 24 // SLL R3, #0x4, R4
+42 04 04 04 // ADDQ R16, R4, R4
+a4 a4 00 10 // LDQ R5, 0x10(R4)
+40 b1 05 a6 // CMPEQ R5, R17, R6
+e4 c0 00 02 // BEQ R6, 0x2
+a7 64 00 18 // LDQ R27, 0x18(R4)
+c3 e0 00 02 // BR R31, 0x2
+40 60 34 03 // ADDQ R3, #0x1, R3
+c3 ff ff f5 // BR R31, -0xb
+a7 71 00 00 // LDQ R27, 0x0(R17)
+6c 00 00 00 // MEXIT 0x0
+// TWrite
+a4 70 00 08 // LDQ R3, 0x8(R16)
+43 ff 04 04 // ADDQ R31, R31, R4
+40 83 09 a5 // CMPLT R4, R3, R5
+e4 a0 00 09 // BEQ R5, 0x9
+48 80 97 25 // SLL R4, #0x4, R5
+42 05 04 05 // ADDQ R16, R5, R5
+a4 c5 00 10 // LDQ R6, 0x10(R5)
+40 d1 05 a7 // CMPEQ R6, R17, R7
+e4 e0 00 02 // BEQ R7, 0x2
+b6 45 00 18 // STQ R18, 0x18(R5)
+c3 e0 00 08 // BR R31, 0x8
+40 80 34 04 // ADDQ R4, #0x1, R4
+c3 ff ff f5 // BR R31, -0xb
+48 60 97 24 // SLL R3, #0x4, R4
+42 04 04 04 // ADDQ R16, R4, R4
+b6 24 00 10 // STQ R17, 0x10(R4)
+b6 44 00 18 // STQ R18, 0x18(R4)
+40 60 34 03 // ADDQ R3, #0x1, R3
+b4 70 00 08 // STQ R3, 0x8(R16)
+6c 00 00 00 // MEXIT 0x0
+// TCommit
+af 7f 10 08 // LDQ_L R27, 0x1008(R31)
+43 60 15 a2 // CMPEQ R27, #0x0, R2
+f4 40 00 02 // BNE R2, 0x2
+43 e0 14 1b // ADDQ R31, #0x0, R27
+c3 e0 00 02 // BR R31, 0x2
+43 e0 34 1b // ADDQ R31, #0x1, R27
+bf 7f 10 08 // STQ_C R27, 0x1008(R31)
+e7 60 00 14 // BEQ R27, 0x14
+a4 5f 10 00 // LDQ R2, 0x1000(R31)
+a4 70 00 00 // LDQ R3, 0x0(R16)
+40 43 05 bb // CMPEQ R2, R3, R27
+e7 60 00 0f // BEQ R27, 0xf
+a4 50 00 08 // LDQ R2, 0x8(R16)
+e4 40 00 0d // BEQ R2, 0xd
+43 ff 04 03 // ADDQ R31, R31, R3
+40 62 09 a4 // CMPLT R3, R2, R4
+e4 80 00 07 // BEQ R4, 0x7
+48 60 97 24 // SLL R3, #0x4, R4
+42 04 04 04 // ADDQ R16, R4, R4
+a4 a4 00 10 // LDQ R5, 0x10(R4)
+a4 c4 00 18 // LDQ R6, 0x18(R4)
+b4 c5 00 00 // STQ R6, 0x0(R5)
+40 60 34 03 // ADDQ R3, #0x1, R3
+c3 ff ff f7 // BR R31, -0x9
+a4 5f 10 00 // LDQ R2, 0x1000(R31)
+40 40 34 02 // ADDQ R2, #0x1, R2
+b4 5f 10 00 // STQ R2, 0x1000(R31)
+b7 ff 10 08 // STQ R31, 0x1008(R31)
+6c 00 00 00 // MEXIT 0x0
+

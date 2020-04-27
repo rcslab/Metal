@@ -1,5 +1,6 @@
 # Enum Declaration
 for i in range(32):
+    exec('MR%d = %d' % (i, i))
     exec('R%d = %d' % (i, i))
 
 meta = {
@@ -131,13 +132,19 @@ meta = {
     'MEXIT': {'code': 0x1B, 'format': 'PIF'},
     'MRPCR': {'code': 0x1D, 'format': 'MIF'},
     'MWPCR': {'code': 0x1E, 'format': 'MIF'},
+
+    'ICEBP': {'code': 0x06, 'format': 'ICE'},
+    'ICEEX': {'code': 0x07, 'format': 'ICE'},
 }
 
 class CodeBlock:
     def __init__(self, name):
         self.name = name
+        self.pre_link = []
         self.asm = []
         self.binary = []
+        self.labels = {}
+        self.labels[name] = 0
 
     def twos_comp(self, num, bits):
         return num + (1 << bits) if num < 0 else num
@@ -152,12 +159,12 @@ class CodeBlock:
         self.binary.append(opcode << 26 | ra << 21 | self.twos_comp(disp, 21))
         self.asm.append('%s R%d, %s' % (op, ra, hex(disp)))
 
-    def OIF(self, op, ra, rb, rc, literal, lit):
+    def OIF(self, op, ra, rb, rc, lit = False):
         opcode = meta[op]['code']
         func = meta[op]['func']
         if lit:
-            self.binary.append(opcode << 26 | ra << 21 | self.twos_comp(literal, 8) << 13 | 1 << 12 | func << 5 | rc)
-            self.asm.append('%s R%d, #%s, R%d' % (op, ra, hex(literal), rc))
+            self.binary.append(opcode << 26 | ra << 21 | self.twos_comp(rb, 8) << 13 | 1 << 12 | func << 5 | rc)
+            self.asm.append('%s R%d, #%s, R%d' % (op, ra, hex(rb), rc))
         else:
             self.binary.append(opcode << 26 | ra << 21 | rb << 16 | func << 5 | rc)
             self.asm.append('%s R%d, R%d, R%d' % (op, ra, rb, rc))
@@ -167,29 +174,87 @@ class CodeBlock:
         self.binary.append(opcode << 26 | disp)
         self.asm.append('%s %s' % (op, hex(disp)))
 
+    def ICE(self, op):
+        opcode = meta[op]['code']
+        self.binary.append(opcode << 26)
+        self.asm.append('%s' % (op))
+
+    def label(self, label):
+        self.labels[label] = len(self.pre_link) * 4
+
     def __getattr__(self, name):
         op = name.upper()
-        op_format = meta[op]['format']
-        return lambda *args: getattr(self, op_format)(op, *args)
+        return lambda *args: self.pre_link.append((op, list(args)))
+
+    def resolve(self, labels, start):
+        for op, args in self.pre_link:
+            op_format = meta[op]['format']
+            for i in range(len(args)):
+                if isinstance(args[i], str):
+                    if op_format == 'BIF':
+                        args[i] = labels[args[i]] // 4 - (start // 4 + len(self.asm)) - 1
+                    else:
+                        args[i] = labels[args[i]]
+            getattr(self, op_format)(op, *args)
 
     def get(self):
         result = '// %s\n' % self.name
         for bin_code, asm_code in zip(self.binary, self.asm):
-            result += '%s // %s\n' % (hex(bin_code)[2:].zfill(8), asm_code)
+            instr = hex(bin_code)[2:].zfill(8)
+            instr = ' '.join([instr[i:i+2] for i in range(0, len(instr), 2)])
+            result += '%s // %s\n' % (instr, asm_code)
         return result
+
+class Linker:
+    def __init__(self):
+        self.blocks = []
+        self.cur_addr = 0
+
+    def add(self, block, start=None):
+        if start is None:
+            start = self.cur_addr
+        self.blocks.append((start, block))
+        self.cur_addr = start + len(block.pre_link) * 4
+
+    def link(self):
+        self.blocks.sort()
+        labels = {}
+        for start, block in self.blocks:
+            for label in block.labels:
+                labels[label] = start + block.labels[label]
+        for start, block in self.blocks:
+            block.resolve(labels, start)
+        memory = ''
+        addr = 0
+        idx = 0
+        while idx < len(self.blocks):
+            if addr == self.blocks[idx][0]:
+                memory += self.blocks[idx][1].get()
+                addr += len(self.blocks[idx][1].asm) * 4
+                idx += 1
+            else: 
+                for _ in range((self.blocks[idx][0] - addr) // 4):
+                    memory += '00 00 00 00 // Padding\n'
+                addr = self.blocks[idx][0]
+        return memory
 
 if __name__ == '__main__':
     code = CodeBlock('Fibonacci')
-    code.ADDQ(R31, 0, R0, 10, True)
-    code.ADDQ(R31, 0, R1, 0, True)
-    code.ADDQ(R31, 0, R2, 1, True)
-    code.ADDQ(R31, 0, R3, 0, True)
-    code.SUBQ(R3, R0, R4, 0, False)
-    code.BEQ(R4, +5)
-    code.ADDQ(R1, R2, R4, 0, False)
-    code.ADDQ(R31, R2, R1, 0, False)
-    code.ADDQ(R31, R4, R2, 0, False)
-    code.ADDQ(R3, 0, R3, 1, True)
-    code.BR(R31, -7)
+    code.ADDQ(R31, 10, R0, True)
+    code.ADDQ(R31, 0, R1, True)
+    code.ADDQ(R31, 1, R2, True)
+    code.ADDQ(R31, 0, R3, True)
+    code.label('loop_start')
+    code.SUBQ(R3, R0, R4)
+    code.BEQ(R4, 'loop_end')
+    code.ADDQ(R1, R2, R4)
+    code.ADDQ(R31, R2, R1)
+    code.ADDQ(R31, R4, R2)
+    code.ADDQ(R3, 1, R3, True)
+    code.BR(R31, 'loop_start')
+    code.label('loop_end')
     code.STQ(R1, R31, 0)
-    print(code.get())
+    linker = Linker()
+    linker.add(code)
+    print(linker.link())
+
